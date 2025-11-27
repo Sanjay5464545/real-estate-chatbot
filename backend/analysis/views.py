@@ -5,8 +5,17 @@ import pandas as pd
 import os
 from groq import Groq
 
-# Initialize Groq client once
-client = Groq(api_key=settings.GROQ_API_KEY)
+# Initialize Groq client with try-except for Render compatibility
+try:
+    client = Groq(api_key=settings.GROQ_API_KEY)
+except:
+    client = None
+
+def get_client():
+    global client
+    if client is None:
+        client = Groq(api_key=settings.GROQ_API_KEY)
+    return client
 
 @api_view(['POST'])
 def analyze_query(request):
@@ -16,6 +25,7 @@ def analyze_query(request):
         
         # Load Excel data
         excel_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'real_estate_data.xlsx')
+        print(f"📂 Looking for Excel at: {excel_path}")
         
         if not os.path.exists(excel_path):
             return Response({
@@ -24,7 +34,8 @@ def analyze_query(request):
             }, status=500)
         
         df = pd.read_excel(excel_path)
-        print(f"✅ Excel loaded! Total rows: {len(df)}")
+        print(f"✅ Excel loaded! Columns: {df.columns.tolist()}")
+        print(f"📊 Total rows: {len(df)}")
         
         # Find Area/Location column
         area_column = None
@@ -33,110 +44,101 @@ def analyze_query(request):
                 area_column = col
                 break
         
-        # Check if query is about real estate or just casual conversation
+        if area_column is None:
+            return Response({
+                'success': False,
+                'error': f'Could not find location/area column. Available: {df.columns.tolist()}'
+            }, status=500)
+        
+        # Extract areas from query
         query_lower = query.lower()
-        real_estate_keywords = ['analyze', 'compare', 'price', 'trend', 'property', 'real estate', 
-                                'wakad', 'aundh', 'baner', 'kharadi', 'akurdi', 'demand', 'sales',
-                                'show', 'area', 'market', 'pune']
+        areas = df[area_column].unique()
+        matched_areas = [area for area in areas if str(area).lower() in query_lower]
         
-        is_real_estate_query = any(keyword in query_lower for keyword in real_estate_keywords)
+        # Check if query is just a greeting or invalid
+        greetings = ['hello', 'hi', 'hey', 'hii', 'test']
+        if any(greet in query_lower for greet in greetings) and not matched_areas:
+            return Response({
+                'success': True,
+                'summary': "👋 Hello! I'm your Real Estate Analysis Assistant powered by Groq's Llama 3.3 AI! Try queries like: 'Analyze Wakad', 'Compare Aundh and Baner', or 'Show price trends for Kharadi'.",
+                'chart_data': {'labels': [], 'values': []},
+                'table_data': []
+            })
         
-        # Extract areas from query if it's a real estate query
-        matched_areas = []
-        filtered_df = None
+        # Filter data based on matched areas
+        if matched_areas:
+            filtered_df = df[df[area_column].isin(matched_areas)]
+            print(f"🎯 Matched areas: {matched_areas}, Filtered rows: {len(filtered_df)}")
+        else:
+            # No match - show sample data
+            filtered_df = df.head(15)
+            print(f"⚠️ No specific area matched, showing sample data")
         
-        if is_real_estate_query and area_column:
-            areas = df[area_column].unique()
-            matched_areas = [area for area in areas if str(area).lower() in query_lower]
-            
-            if matched_areas:
-                filtered_df = df[df[area_column].isin(matched_areas)]
-                print(f"🎯 Matched areas: {matched_areas}, Filtered rows: {len(filtered_df)}")
-            else:
-                filtered_df = df.head(15)
-                print(f"⚠️ No specific area matched, showing sample data")
+        # Prepare data summary for LLM
+        data_summary = filtered_df.head(5).to_string(index=False)
         
-        # Prepare AI response using Groq
+        # Use Groq API with Llama 3.3 model
         summary = ""
-        
-        if is_real_estate_query and filtered_df is not None:
-            # REAL ESTATE QUERY - Send data to AI
-            data_summary = filtered_df.head(5).to_string(index=False)
+        try:
             
-            print("🤖 Calling Groq AI for real estate analysis...")
+            print("🤖 Calling Groq API with Llama 3.3 model...")
             
-            chat_completion = client.chat.completions.create(
+            chat_completion = get_client().chat.completions.create(
+
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a professional real estate market analyst. Provide concise, insightful analysis in 2-3 sentences focusing on trends, prices, and market insights."
+                        "content": "You are a real estate market analyst. Provide concise, professional analysis in 2-3 sentences focusing on trends, prices, and market insights."
                     },
                     {
                         "role": "user",
                         "content": f"User query: {query}\n\nReal estate data:\n{data_summary}\n\nProvide brief market analysis:"
                     }
                 ],
-                model="llama-3.3-70b-versatile",
+                model="llama-3.3-70b-versatile",  # This is the Llama 3.3 model
                 temperature=0.7,
-                max_tokens=250
+                max_tokens=200
             )
             
             summary = chat_completion.choices[0].message.content
-            print("✅ Groq AI real estate analysis complete!")
+            print("✅ Groq API (Llama 3.3) response received!")
             
-        else:
-            # CASUAL CONVERSATION - Let AI respond naturally
-            print("💬 Casual conversation detected - using AI for natural response...")
-            
-            chat_completion = client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a friendly Real Estate Analysis Chatbot assistant. When users greet you or ask casual questions, respond warmly and guide them to ask about real estate areas in Pune like Wakad, Aundh, Baner, Kharadi, etc. Keep responses brief (1-2 sentences)."
-                    },
-                    {
-                        "role": "user",
-                        "content": query
-                    }
-                ],
-                model="llama-3.3-70b-versatile",
-                temperature=0.9,
-                max_tokens=150
-            )
-            
-            summary = chat_completion.choices[0].message.content
-            print("✅ Groq AI casual response generated!")
+        except Exception as llm_error:
+            print(f"⚠️ Groq API error: {llm_error}")
+            # Fallback summary if Groq fails
+            if matched_areas:
+                summary = f"📊 Real Estate Analysis for {', '.join(matched_areas)}: Found {len(filtered_df)} property records. The data shows trends in sales, pricing, and market activity across different years."
+            else:
+                summary = f"📊 Showing sample real estate data with {len(filtered_df)} records. Please specify an area name for detailed analysis."
         
-        # Prepare chart data only for real estate queries
+        # Prepare chart data (year-wise price trends)
         chart_data = {'labels': [], 'values': []}
-        table_data = []
         
-        if is_real_estate_query and filtered_df is not None:
-            # Find Year and Price columns
-            year_col = None
-            price_col = None
-            
-            for col in df.columns:
-                col_lower = col.lower()
-                if 'year' in col_lower:
-                    year_col = col
-                if 'price' in col_lower or 'sales' in col_lower or 'total_sales' in col_lower:
-                    price_col = col
-            
-            if year_col and price_col and len(filtered_df) > 0:
-                try:
-                    yearly_data = filtered_df.groupby(year_col)[price_col].mean().reset_index()
-                    yearly_data = yearly_data.sort_values(year_col)
-                    chart_data = {
-                        'labels': [str(int(y)) for y in yearly_data[year_col].tolist()],
-                        'values': [float(v) for v in yearly_data[price_col].tolist()]
-                    }
-                    print(f"📊 Chart data prepared: {len(chart_data['labels'])} data points")
-                except Exception as chart_error:
-                    print(f"⚠️ Chart error: {chart_error}")
-            
-            # Prepare table data
-            table_data = filtered_df.head(20).fillna('N/A').to_dict('records')
+        year_col = None
+        price_col = None
+        
+        # Find Year and Price columns
+        for col in df.columns:
+            col_lower = col.lower()
+            if 'year' in col_lower:
+                year_col = col
+            if 'price' in col_lower or 'sales' in col_lower or 'total_sales' in col_lower:
+                price_col = col
+        
+        if year_col and price_col and len(filtered_df) > 0:
+            try:
+                yearly_data = filtered_df.groupby(year_col)[price_col].mean().reset_index()
+                yearly_data = yearly_data.sort_values(year_col)
+                chart_data = {
+                    'labels': [str(int(y)) for y in yearly_data[year_col].tolist()],
+                    'values': [float(v) for v in yearly_data[price_col].tolist()]
+                }
+                print(f"📊 Chart data prepared: {len(chart_data['labels'])} data points")
+            except Exception as chart_error:
+                print(f"⚠️ Chart preparation error: {chart_error}")
+        
+        # Prepare table data (top 20 records)
+        table_data = filtered_df.head(20).fillna('N/A').to_dict('records')
         
         return Response({
             'success': True,
