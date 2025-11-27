@@ -105,16 +105,17 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS Settings - Allow React to connect
+# CORS Configuration
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "https://real-estate-chatbot-ten.vercel.app",
+    "https://real-estate-chatbot-git-main-sanjays-projects-7a11b0da.vercel.app",
     "https://real-estate-chatbot-mxfl.onrender.com",
 ]
 
-# Also add these for extra compatibility:
 CORS_ALLOW_CREDENTIALS = True
+
 CSRF_TRUSTED_ORIGINS = [
-    "https://real-estate-chatbot-ten.vercel.app",
+    "https://real-estate-chatbot-git-main-sanjays-projects-7a11b0da.vercel.app",
     "https://real-estate-chatbot-mxfl.onrender.com",
 ]
 
