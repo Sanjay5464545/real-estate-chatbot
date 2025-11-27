@@ -17,7 +17,12 @@ SECRET_KEY = 'django-insecure-y10brgz)ds3k%w@n&%ekmaq#+452bw2vmab-bq7g6@+qkmjl%t
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'real-estate-chatbot-mxfl.onrender.com',
+    'localhost',
+    '127.0.0.1',
+]
+
 
 # Application definition
 INSTALLED_APPS = [
@@ -102,6 +107,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # CORS Settings - Allow React to connect
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "https://real-estate-chatbot-mxfl.onrender.com",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
