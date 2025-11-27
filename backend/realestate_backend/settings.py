@@ -4,7 +4,7 @@ Django settings for realestate_backend project.
 import os
 
 # Add to ALLOWED_HOSTS (around line 28):
-ALLOWED_HOSTS = ['*']  # Temporary - change to your domain later
+  # Temporary - change to your domain later
 
 from pathlib import Path
 
