@@ -22,7 +22,8 @@ function App() {
       
       try {
         // Call Django API
-        const response = await axios.post('http://127.0.0.1:8000/api/analyze/', {
+        const response = await axios.post('https://real-estate-chatbot-mxfl.onrender.com/api/analyze/', {
+
           query: query
         });
         
