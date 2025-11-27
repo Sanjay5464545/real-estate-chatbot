@@ -106,18 +106,24 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS Settings - Allow React to connect
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "https://real-estate-chatbot-git-main-sanjays-projects-7a11b0da.vercel.app",
-    "https://real-estate-chatbot-mxfl.onrender.com",
-]
-
+# CORS Configuration - Allow all origins for demo
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://real-estate-chatbot-git-main-sanjays-projects-7a11b0da.vercel.app",
-    "https://real-estate-chatbot-mxfl.onrender.com",
+# Keep ALLOWED_HOSTS
+ALLOWED_HOSTS = [
+    'real-estate-chatbot-mxfl.onrender.com',
+    'localhost',
+    '127.0.0.1',
+    '*',
 ]
+
+# Also add this for CSRF
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.vercel.app',
+    'https://real-estate-chatbot-mxfl.onrender.com',
+]
+
 
 
 CORS_ALLOW_CREDENTIALS = True
